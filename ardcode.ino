@@ -1,51 +1,33 @@
-import cv2
-import serial
-import os
+#include <Adafruit_NeoPixel.h>
 
-# Get the current working directory
-current_directory = os.getcwd()
+#define PIN        6  // Pin for LED Matrix
+#define NUM_LEDS  64  // Number of LEDs in your matrix
 
-# Load pre-trained car detection Haar cascade
-cascade_path = os.path.join(current_directory, 'haarcascade_car.xml')  # Path to the cascade file
-car_cascade = cv2.CascadeClassifier(cascade_path)
+Adafruit_NeoPixel matrix = Adafruit_NeoPixel(NUM_LEDS, PIN, NEO_GRB + NEO_KHZ800);
 
-# Open the video file
-video_path = os.path.join(current_directory, 'cars_video.mp4')  # Path to the video file
-cap = cv2.VideoCapture(video_path)
+void setup() {
+  Serial.begin(9600);
+  matrix.begin();
+  matrix.show();  // Initialize all pixels to 'off'
+}
 
-# Initialize serial connection with Arduino
-ser = serial.Serial('COM5', 9600)  # Adjust port as needed
+void loop() {
+  if (Serial.available() > 0) {
+    char lane = Serial.read();  // Read the lane information from Python
 
-while cap.isOpened():
-    ret, frame = cap.read()
-    if not ret:
-        print("Error reading frame. Exiting...")
-        break
+    // Control LEDs based on the received lane information
+    for (int i = 0; i < NUM_LEDS; i++) {
+      int row = i / 8;  // Calculate row index
+      int col = i % 8;  // Calculate column index
 
-    # Convert frame to grayscale for detection
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+      // Determine which LEDs to turn on based on the lane
+      if ((lane == 'l' && col < 4) || (lane == 'r' && col >= 4)) {
+        matrix.setPixelColor(i, matrix.Color(255, 255, 255));  // White color for LEDs in the lane
+      } else {
+        matrix.setPixelColor(i, matrix.Color(0, 0, 0));  // Turn off other LEDs
+      }
+    }
 
-    # Detect cars in the frame
-    cars = car_cascade.detectMultiScale(gray, scaleFactor=1.05, minNeighbors=2, minSize=(40, 40))
-
-    # Determine the lane of each car and send lane information to Arduino
-    for (x, y, w, h) in cars:
-        lane = "left" if x < frame.shape[1] / 2 else "right"
-        ser.write(bytes(lane + '\n', 'utf-8'))
-
-    # Draw rectangles around the detected cars
-    for (x, y, w, h) in cars:
-        cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-    
-    # Show the frame with car detections
-    cv2.imshow('Incoming Car Detection', frame)
-
-    # Press 'q' to exit
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
-
-# Release resources
-cap.release()
-cv2.destroyAllWindows()
-shall I upload this 
-the path to
+    matrix.show();  // Update the LED matrix
+  }
+}
